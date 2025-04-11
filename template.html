@@ -100,7 +100,7 @@
   // Full commit hash array (for click events)
   const commitHashes = commits.map(item => item.commit);
   // Short commit version (first 10 characters) for display in hover text
-  const shortCommits = commitHashes.map(c => c.substring(0,10));
+  const shortCommits = commitHashes.map(c => c.substring(0,7));
 
   // --- Create Plotly Chart ---
   const trace = {
@@ -155,7 +155,7 @@
     if (Math.abs(percentChange) > threshold) {
       const changeItem = {
         commit: curr.commit,                          // full hash for URL
-        shortCommit: curr.commit.substring(0, 10),      // short hash for display
+        shortCommit: curr.commit.substring(0, 7),      // short hash for display
         date: curr.date,
         diff,
         percentChange,
