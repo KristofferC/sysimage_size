@@ -2,62 +2,49 @@ using Dates, CSV, DataFrames, PlotlyJS
 
 julia_repo() = joinpath(homedir(), "julia")
 
-function process_data(input_file)
+function process_data(input_file, commit_range="HEAD")
     df = CSV.read(input_file, DataFrame; header=false, delim=' ')
     rename!(df, [:commit, :size])
     commit_range = string(df[!,1][1], "..", df[!,1][end])
 
-    # Get base dates for all commits
+    # Get commit dates
     function get_commit_date(commit)
-        cmd = `git -C $(julia_repo()) show -s --format=%ci $commit`
+        cmd = `git -C $(julia_repo()) show -s --format=%cd --date=iso-local $commit`
         date_str = chomp(String(read(cmd)))
         DateTime(date_str[1:19], dateformat"yyyy-mm-dd HH:MM:SS")
     end
 
     df[!, :date] = [get_commit_date(c) for c in df.commit]
 
-    # Create quick lookup structures
-    commit_set = Set(df.commit)
-    date_dict = Dict(row.commit => row.date for row in eachrow(df))
+    # Track commits to exclude
+    excluded_commits = Set{String}()
 
-    # Process merge commits in the specified range
+    # Process merge commits
     merge_commits = readlines(`git -C $(julia_repo()) rev-list --merges $commit_range`)
-    @show merge_commits
     for mc in merge_commits
-        @show mc
-          # Skip "Merge branch 'master' into" commits
-        commit_msg = readchomp(`git log --format=%B -1 $mc`)
+        # Skip and exclude "Merge branch 'master' into" commits
+        commit_msg = readchomp(`git -C $(julia_repo()) log --format=%B -1 $mc`)
         if startswith(commit_msg, "Merge branch 'master' into")
-            @info "Skipping merge commit $mc"
+            push!(excluded_commits, mc)
             continue
         end
 
-        # Get merge commit date
-        mc_date = get_commit_date(mc)
-
         # Get parent commits
         parents = split(readchomp(`git -C $(julia_repo()) log -1 --format=%P $mc`))
-        length(parents) < 2 && continue  # Skip non-merge or octopus merges
+        length(parents) < 2 && continue
 
-        # Get merged branch commits
+        # Get and exclude merged branch commits
         merged_commits = readlines(`git -C $(julia_repo()) rev-list $(parents[2]) --not $(parents[1])`)
-
-        # Update dates for merged commits present in our dataset
-        @show mc => (merged_commits, mc_date)
-
-        for c in merged_commits
-            if c in commit_set
-                date_dict[c] = mc_date
-            end
-        end
+        union!(excluded_commits, merged_commits)
     end
 
-    # Update dataframe with adjusted dates
-    df[!, :date] = [date_dict[c] for c in df.commit]
+    # Filter out excluded commits
+    filter!(row -> !(row.commit in excluded_commits), df)
     sort!(df, :date)
 
     return df
 end
+
 
 # Generate interactive plot
 function create_plot(df)
