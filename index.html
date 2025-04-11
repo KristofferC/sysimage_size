@@ -2991,6 +2991,9 @@ a9611ce6acde605c4f5ec5787514e181b6b4add6 186727832 2024-03-18T12:20:55.0
   significantIncreases.sort((a, b) => b.absDiff - a.absDiff);
   significantDecreases.sort((a, b) => b.absDiff - a.absDiff);
 
+  // Function to convert bytes to megabytes (MB), with two-decimal places.
+  const bytesToMB = bytes => (bytes / 1048576).toFixed(2);
+
   // --- Display Significant Increases ---
   const increasesList = document.getElementById('increases-list');
   significantIncreases.forEach(change => {
@@ -3009,7 +3012,7 @@ a9611ce6acde605c4f5ec5787514e181b6b4add6 186727832 2024-03-18T12:20:55.0
     li.appendChild(link);
 
     li.appendChild(document.createTextNode(
-      ` — ${(change.percentChange * 100).toFixed(2)}% change (${change.diff} bytes) on ${change.date}`
+      ` — ${(change.percentChange * 100).toFixed(2)}% change (${bytesToMB(change.diff)} MB) on ${change.date}`
     ));
     increasesList.appendChild(li);
   });
@@ -3032,7 +3035,7 @@ a9611ce6acde605c4f5ec5787514e181b6b4add6 186727832 2024-03-18T12:20:55.0
     li.appendChild(link);
 
     li.appendChild(document.createTextNode(
-      ` — ${(change.percentChange * 100).toFixed(2)}% change (${change.diff} bytes) on ${change.date}`
+      ` — ${(change.percentChange * 100).toFixed(2)}% change (${bytesToMB(change.diff)} MB) on ${change.date}`
     ));
     decreasesList.appendChild(li);
   });

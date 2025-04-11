@@ -195,7 +195,7 @@
     li.appendChild(link);
 
     li.appendChild(document.createTextNode(
-      ` — ${(change.percentChange * 100).toFixed(2)}% change (${change.diff} bytes) on ${change.date}`
+      ` — ${(change.percentChange * 100).toFixed(2)}% change (${bytesToMB(change.diff)} MB) on ${change.date}`
     ));
     increasesList.appendChild(li);
   });
