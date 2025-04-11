@@ -17,17 +17,28 @@
       width: 80%;
       margin: auto;
     }
-    #commits-list {
-      width: 80%;
+    /* Container for two columns */
+    #columns-container {
+      display: flex;
+      justify-content: space-between;
       margin: 40px auto;
+      width: 80%;
+    }
+    .column {
+      width: 48%;
+    }
+    .column h3 {
+      text-align: center;
+    }
+    .column ul {
       list-style-type: none;
       padding: 0;
     }
-    #commits-list li {
+    .column li {
       margin: 8px 0;
       font-size: 16px;
     }
-    #commits-list a {
+    .column a {
       text-decoration: none;
       color: blue;
       font-family: monospace;
@@ -46,15 +57,27 @@
 </head>
 <body>
 
-<h1>Commit Size Analysis with Plotly</h1>
+<h1>Julia Sysimage Size Analysis</h1>
 
 <!-- Plot container -->
 <div id="plot"></div>
 
 <h2>Significant Size Changes (> 1%)</h2>
-<ul id="commits-list">
-  <!-- Sorted list items will be inserted here by JavaScript -->
-</ul>
+<!-- Container for two columns (Increases and Decreases) -->
+<div id="columns-container">
+  <div class="column" id="increases-column">
+    <h3>Increases</h3>
+    <ul id="increases-list">
+      <!-- Increases will be inserted here -->
+    </ul>
+  </div>
+  <div class="column" id="decreases-column">
+    <h3>Decreases</h3>
+    <ul id="decreases-list">
+      <!-- Decreases will be inserted here -->
+    </ul>
+  </div>
+</div>
 
 <script>
   // --- CSV Data ---
@@ -86,8 +109,8 @@
     mode: 'lines+markers',
     type: 'scatter',
     marker: { size: 8 },
-    customdata: commitHashes, // still contains full commit hash
-    text: shortCommits,       // display only first 10 characters
+    customdata: commitHashes, // full commit hash for each point
+    text: shortCommits,       // short commit for display
     hovertemplate:
       'Commit: %{text}<br>' +
       'Date: %{x}<br>' +
@@ -103,25 +126,26 @@
     yaxis: {
       title: 'Size'
     }
-    // Note: Plotly charts are zoomable and pannable by default.
   };
 
   Plotly.newPlot('plot', [trace], layout);
 
-  // --- Add Click Event Handler ---
+  // --- Add Click Event Handler to Chart ---
   document.getElementById('plot').on('plotly_click', function(data) {
-    if(data.points.length > 0) {
+    if (data.points.length > 0) {
       const commit = data.points[0].customdata;
-      // Open full commit page in a new tab.
       window.open('https://github.com/JuliaLang/julia/commit/' + commit, '_blank');
     }
   });
 
-  // --- Compute and Sort Significant Size Changes ---
-  // A change is considered significant if it is > 1% (threshold)
+  // --- Compute Significant Size Changes ---
+  // A change is considered significant if it is > 1%
   const threshold = 0.01;
-  const significantChanges = [];
+  // Arrays to collect increases and decreases separately
+  const significantIncreases = [];
+  const significantDecreases = [];
 
+  // Loop through commits to compute differences between successive commits
   for (let i = 1; i < commits.length; i++) {
     const prev = commits[i - 1];
     const curr = commits[i];
@@ -129,38 +153,38 @@
     const percentChange = diff / prev.size;
 
     if (Math.abs(percentChange) > threshold) {
-      significantChanges.push({
-        commit: curr.commit,           // full commit hash for URL
-        shortCommit: curr.commit.substring(0, 10), // short form for display
+      const changeItem = {
+        commit: curr.commit,                          // full hash for URL
+        shortCommit: curr.commit.substring(0, 10),      // short hash for display
         date: curr.date,
         diff,
         percentChange,
         absDiff: Math.abs(diff)
-      });
+      };
+
+      if (diff > 0) {
+        significantIncreases.push(changeItem);
+      } else {
+        significantDecreases.push(changeItem);
+      }
     }
   }
 
-  // Sort the significant changes in descending order by absolute diff in size
-  significantChanges.sort((a, b) => b.absDiff - a.absDiff);
+  // Sort each array by descending order of absolute diff
+  significantIncreases.sort((a, b) => b.absDiff - a.absDiff);
+  significantDecreases.sort((a, b) => b.absDiff - a.absDiff);
 
-  // --- Display the Sorted Significant Changes ---
-  const listContainer = document.getElementById('commits-list');
-  significantChanges.forEach(change => {
+  // --- Display Significant Increases ---
+  const increasesList = document.getElementById('increases-list');
+  significantIncreases.forEach(change => {
     const li = document.createElement('li');
 
-    // Create arrow indicator for increase or decrease
     const arrow = document.createElement('span');
-    if (change.diff > 0) {
-      arrow.textContent = '↑';
-      arrow.className = 'arrow-up';
-    } else {
-      arrow.textContent = '↓';
-      arrow.className = 'arrow-down';
-    }
+    arrow.textContent = '↑';
+    arrow.className = 'arrow-up';
     li.appendChild(arrow);
     li.appendChild(document.createTextNode(' '));
 
-    // Create a clickable link for the commit hash (short form)
     const link = document.createElement('a');
     link.href = 'https://github.com/JuliaLang/julia/commit/' + change.commit;
     link.target = '_blank';
@@ -170,7 +194,30 @@
     li.appendChild(document.createTextNode(
       ` — ${(change.percentChange * 100).toFixed(2)}% change (${change.diff} bytes) on ${change.date}`
     ));
-    listContainer.appendChild(li);
+    increasesList.appendChild(li);
+  });
+
+  // --- Display Significant Decreases ---
+  const decreasesList = document.getElementById('decreases-list');
+  significantDecreases.forEach(change => {
+    const li = document.createElement('li');
+
+    const arrow = document.createElement('span');
+    arrow.textContent = '↓';
+    arrow.className = 'arrow-down';
+    li.appendChild(arrow);
+    li.appendChild(document.createTextNode(' '));
+
+    const link = document.createElement('a');
+    link.href = 'https://github.com/JuliaLang/julia/commit/' + change.commit;
+    link.target = '_blank';
+    link.textContent = change.shortCommit;
+    li.appendChild(link);
+
+    li.appendChild(document.createTextNode(
+      ` — ${(change.percentChange * 100).toFixed(2)}% change (${change.diff} bytes) on ${change.date}`
+    ));
+    decreasesList.appendChild(li);
   });
 </script>
 
