@@ -51,8 +51,8 @@ end
 
 
 # Main execution
-# df_file = process_data("sysimage_sizes.txt")
-df_file = "sysimage_sizes_postprocessed.txt"
+df_file = process_data("sysimage_sizes.txt")
+# df_file = "sysimage_sizes_postprocessed.txt"
 processed_data = read(df_file, String)
 html_template = read("template.html", String)
 html_code = replace(html_template, "___SYSIMAGE_SIZE_DATA___" => processed_data)
