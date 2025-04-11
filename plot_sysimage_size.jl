@@ -42,7 +42,11 @@ function process_data(input_file, commit_range="HEAD")
     filter!(row -> !(row.commit in excluded_commits), df)
     sort!(df, :date)
 
-    return df
+    name, ext = splitext(input_file)
+    new_name = string(name, "_postprocessed", ext)
+    CSV.write(new_name, df; delim = ' ')
+
+    return new_name
 end
 
 
@@ -88,6 +92,7 @@ function save_interactive_plot(plt, filename)
 end
 
 # Main execution
-df = process_data("sysimage_sizes.txt")
+df_file = process_data("sysimage_sizes.txt")
+df = CSV.read(df_file, DataFrame; delim = ' ')
 plt = create_plot(df)
-save_interactive_plot(plt, "sysimage_history.html")
+save_interactive_plot(plt, "index.html")
