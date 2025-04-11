@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Commit Size Analysis with Plotly</title>
+  <!-- Include Plotly.js explicitly with version 2.24.1 -->
+  <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    #plot {
+      width: 80%;
+      margin: auto;
+    }
+    #commits-list {
+      width: 80%;
+      margin: 40px auto;
+      list-style-type: none;
+      padding: 0;
+    }
+    #commits-list li {
+      margin: 8px 0;
+      font-size: 16px;
+    }
+    #commits-list a {
+      text-decoration: none;
+      color: blue;
+      font-family: monospace;
+    }
+    .arrow-up {
+      color: red;
+      font-size: 18px;
+      vertical-align: middle;
+    }
+    .arrow-down {
+      color: green;
+      font-size: 18px;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Commit Size Analysis with Plotly</h1>
+
+<!-- Plot container -->
+<div id="plot"></div>
+
+<h2>Significant Size Changes (> 1%)</h2>
+<ul id="commits-list">
+  <!-- Sorted list items will be inserted here by JavaScript -->
+</ul>
+
+<script>
+  // --- CSV Data ---
+  const csvData = `___SYSIMAGE_SIZE_DATA___`;
+
+  // --- Parse CSV Data ---
+  const rows = csvData.split('\n');
+  // Assume the first row is the header
+  const commits = rows.slice(1).map(row => {
+    const [commit, size, date] = row.split(' ');
+    return { commit, size: Number(size), date };
+  });
+
+  // Sort commits by date (chronologically)
+  commits.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // Prepare arrays for Plotly chart
+  const dates = commits.map(item => new Date(item.date));
+  const sizes = commits.map(item => item.size);
+  // Full commit hash array (for click events)
+  const commitHashes = commits.map(item => item.commit);
+  // Short commit version (first 10 characters) for display in hover text
+  const shortCommits = commitHashes.map(c => c.substring(0,10));
+
+  // --- Create Plotly Chart ---
+  const trace = {
+    x: dates,
+    y: sizes,
+    mode: 'lines+markers',
+    type: 'scatter',
+    marker: { size: 8 },
+    customdata: commitHashes, // still contains full commit hash
+    text: shortCommits,       // display only first 10 characters
+    hovertemplate:
+      'Commit: %{text}<br>' +
+      'Date: %{x}<br>' +
+      'Size: %{y}<extra></extra>'
+  };
+
+  const layout = {
+    title: 'Commit Size Over Time',
+    xaxis: {
+      title: 'Date',
+      type: 'date'
+    },
+    yaxis: {
+      title: 'Size'
+    }
+    // Note: Plotly charts are zoomable and pannable by default.
+  };
+
+  Plotly.newPlot('plot', [trace], layout);
+
+  // --- Add Click Event Handler ---
+  document.getElementById('plot').on('plotly_click', function(data) {
+    if(data.points.length > 0) {
+      const commit = data.points[0].customdata;
+      // Open full commit page in a new tab.
+      window.open('https://github.com/JuliaLang/julia/commit/' + commit, '_blank');
+    }
+  });
+
+  // --- Compute and Sort Significant Size Changes ---
+  // A change is considered significant if it is > 1% (threshold)
+  const threshold = 0.01;
+  const significantChanges = [];
+
+  for (let i = 1; i < commits.length; i++) {
+    const prev = commits[i - 1];
+    const curr = commits[i];
+    const diff = curr.size - prev.size;
+    const percentChange = diff / prev.size;
+
+    if (Math.abs(percentChange) > threshold) {
+      significantChanges.push({
+        commit: curr.commit,           // full commit hash for URL
+        shortCommit: curr.commit.substring(0, 10), // short form for display
+        date: curr.date,
+        diff,
+        percentChange,
+        absDiff: Math.abs(diff)
+      });
+    }
+  }
+
+  // Sort the significant changes in descending order by absolute diff in size
+  significantChanges.sort((a, b) => b.absDiff - a.absDiff);
+
+  // --- Display the Sorted Significant Changes ---
+  const listContainer = document.getElementById('commits-list');
+  significantChanges.forEach(change => {
+    const li = document.createElement('li');
+
+    // Create arrow indicator for increase or decrease
+    const arrow = document.createElement('span');
+    if (change.diff > 0) {
+      arrow.textContent = '↑';
+      arrow.className = 'arrow-up';
+    } else {
+      arrow.textContent = '↓';
+      arrow.className = 'arrow-down';
+    }
+    li.appendChild(arrow);
+    li.appendChild(document.createTextNode(' '));
+
+    // Create a clickable link for the commit hash (short form)
+    const link = document.createElement('a');
+    link.href = 'https://github.com/JuliaLang/julia/commit/' + change.commit;
+    link.target = '_blank';
+    link.textContent = change.shortCommit;
+    li.appendChild(link);
+
+    li.appendChild(document.createTextNode(
+      ` — ${(change.percentChange * 100).toFixed(2)}% change (${change.diff} bytes) on ${change.date}`
+    ));
+    listContainer.appendChild(li);
+  });
+</script>
+
+</body>
+</html>

@@ -50,49 +50,10 @@ function process_data(input_file, commit_range="HEAD")
 end
 
 
-# Generate interactive plot
-function create_plot(df)
-    trace = scatter(
-        x=df.date,
-        y=df.size,
-        mode="markers+lines",
-        marker=attr(size=8, color="#2A9D8F"),
-        line=attr(color="#264653"),
-        text=["Commit: $(row.commit)<br>Date: $(row.date)" for row in eachrow(df)],
-        customdata=df.commit,
-        hoverinfo="text+y"
-    )
-
-    layout = Layout(
-        title="Julia Sysimage Size History",
-        xaxis_title="Commit Date",
-        yaxis_title="Size (bytes)",
-        plot_bgcolor="white",
-        hovermode="closest",
-        showlegend=false,
-        annotations=[
-            attr(
-                x=0.5,
-                y=-0.2,
-                showarrow=false,
-                text="Click points to view commit on GitHub",
-                xref="paper",
-                yref="paper"
-            )
-        ]
-    )
-
-    return Plot([trace], layout)
-end
-
-function save_interactive_plot(plt, filename)
-    # Generate base plot HTML
-    temp_file = tempname() * ".html"
-    savefig(plt, filename)
-end
-
 # Main execution
-df_file = process_data("sysimage_sizes.txt")
-df = CSV.read(df_file, DataFrame; delim = ' ')
-plt = create_plot(df)
-save_interactive_plot(plt, "index.html")
+# df_file = process_data("sysimage_sizes.txt")
+df_file = "sysimage_sizes_postprocessed.txt"
+processed_data = read(df_file, String)
+html_template = read("template.html", String)
+html_code = replace(html_template, "___SYSIMAGE_SIZE_DATA___" => processed_data)
+write("index.html", html_code)
